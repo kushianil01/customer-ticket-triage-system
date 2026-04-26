@@ -1,7 +1,7 @@
 # ==========================================
 # main.py
-# FULL BACKEND FOR YOUR LOVABLE FRONTEND
-# Uses your exact project logic
+# FULL BACKEND FOR LOVABLE FRONTEND
+# Final Improved Version
 # ==========================================
 
 from fastapi import FastAPI
@@ -17,7 +17,6 @@ import random
 
 app = FastAPI()
 
-# Allow frontend connection
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,7 +50,7 @@ def smart_priority(text):
     high_words = [
         "urgent", "outage", "down", "cannot login",
         "failed", "critical", "error", "hacked",
-        "not working"
+        "not working", "dringend", "high priority"
     ]
 
     low_words = [
@@ -156,17 +155,53 @@ def suggested_reply(ticket_type, priority, route):
     if ticket_type == "Technical Issue":
         return f"Your issue has been assigned to the {route}. Our team will investigate and respond {get_sla(priority).lower()}."
 
-    else:
+    elif ticket_type == "Service Request":
         return f"Your request has been forwarded to the {route}. We will get back to you {get_sla(priority).lower()}."
 
+    else:
+        return "Please enter a detailed support issue or request."
+
 # -----------------------------------
-# API Route
+# Home Route
+# -----------------------------------
+
+@app.get("/")
+def home():
+    return {"message": "Customer Ticket Triage API Running"}
+
+# -----------------------------------
+# Predict Route
 # -----------------------------------
 
 @app.post("/predict")
 def predict(data: TicketRequest):
 
-    ticket = data.text
+    ticket = data.text.strip()
+    text_clean = ticket.lower()
+
+    # -----------------------------------
+    # Invalid Input Detection
+    # -----------------------------------
+
+    casual_words = [
+        "hi", "hello", "thanks", "thank you",
+        "bye", "ok", "okay", "good morning"
+    ]
+
+    if len(ticket.split()) < 4 or text_clean in casual_words:
+        return {
+            "ticket_id": "N/A",
+            "ticket_type": "Invalid Input",
+            "confidence": 0,
+            "priority": "-",
+            "route_to": "Manual Review",
+            "sla": "-",
+            "reply": "Please enter a detailed support issue or request."
+        }
+
+    # -----------------------------------
+    # Normal Prediction
+    # -----------------------------------
 
     pred, confidence = predict_ticket_type(ticket)
 
@@ -180,7 +215,7 @@ def predict(data: TicketRequest):
 
     reply = suggested_reply(ticket_type, priority, route)
 
-    ticket_id = "TKT-" + str(random.randint(10000,99999))
+    ticket_id = "TKT-" + str(random.randint(10000, 99999))
 
     return {
         "ticket_id": ticket_id,
